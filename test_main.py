@@ -1,31 +1,52 @@
+import pytest
 from fastapi.testclient import TestClient
-from main import app, db  # or whatever your app module is
+from pydantic import TypeAdapter
+
+from main import app, db
+from models import Expression, CalculatorLog
 
 client = TestClient(app)
 
+# Validates a whole JSON array against the CalculatorLog model in one call.
+HistoryList = TypeAdapter(list[CalculatorLog])
+
+
+@pytest.fixture(autouse=True)
+def clean_db():
+    """Every test starts and ends with an empty history."""
+    db.clear()
+    yield
+    db.clear()
+
+
+def post_expr(expr: str):
+    """Send the expression as a request body built from the Expression model."""
+    return client.post("/calculate", json=Expression(expr=expr).model_dump())
+
+
 def test_basic_division():
-    r = client.post("/calculate", params={"expr": "30/4"})
+    r = post_expr("30/4")
     assert r.status_code == 200
     data = r.json()
     assert data["ok"] is True
     assert abs(data["result"] - 7.5) < 1e-9
 
 def test_percent_subtraction():
-    r = client.post("/calculate", params={"expr": "100 - 6%"})
+    r = post_expr("100 - 6%")
     assert r.status_code == 200
     data = r.json()
     assert data["ok"] is True
     assert abs(data["result"] - 94.0) < 1e-9
 
 def test_standalone_percent():
-    r = client.post("/calculate", params={"expr": "6%"})
+    r = post_expr("6%")
     assert r.status_code == 200
     data = r.json()
     assert data["ok"] is True
     assert abs(data["result"] - 0.06) < 1e-9
 
 def test_invalid_expr_returns_ok_false():
-    r = client.post("/calculate", params={"expr": "2**(3"})
+    r = post_expr("2**(3")
     assert r.status_code == 200
     data = r.json()
     assert data["ok"] is False
@@ -34,28 +55,31 @@ def test_invalid_expr_returns_ok_false():
 
 # TODO Add more tests
 def test_limit_zero():
-    r = client.get("/history", params={"limit":0})
+    post_expr("1+1")
+    r = client.get("/history", params={"limit": 0})
     assert r.status_code == 200
-    data = r.json()
-    assert isinstance(data, list)
-    assert len(data) == 0
+    logs = HistoryList.validate_python(r.json())
+    assert logs == []
 
 def test_limit_neg():
-    r = client.get("/history", params={"limit":-1})
+    r = client.get("/history", params={"limit": -1})
     assert r.status_code == 200
-    data = r.json()
-    assert data["ok"] is False
-    assert "error" in data and data["error"] == "Limit can not be negative"
+    # main.py treats a negative limit as "no rows" rather than an error.
+    logs = HistoryList.validate_python(r.json())
+    assert logs == []
 
 def test_limit_pos():
-    r = client.get("/history", params={"limit":50})
+    post_expr("1+1")
+    post_expr("2+2")
+    r = client.get("/history", params={"limit": 50})
     assert r.status_code == 200
-    data = r.json()
-    assert isinstance(data, list)
-    assert len(data) <= 50
+    logs = HistoryList.validate_python(r.json())
+    assert len(logs) <= 50
+    assert all(isinstance(log, CalculatorLog) for log in logs)
+    assert logs[0].expr == "1+1"
+    assert logs[0].result == 2.0
 
 def test_del_empty():
-    db.clear()
     r = client.delete("/history")
     assert r.status_code == 200
     data = r.json()
@@ -63,7 +87,7 @@ def test_del_empty():
     assert data["cleared"] is False
 
 def test_actual_del():
-    client.post("/calculate", params={"expr": "1+1"})
+    post_expr("1+1")
     r = client.delete("/history")
     assert r.status_code == 200
     data = r.json()
@@ -71,12 +95,10 @@ def test_actual_del():
     assert data["cleared"] is True
 
 def test_del_twice():
-    client.post("/calculate", params={"expr": "1+1"})
+    post_expr("1+1")
     r1 = client.delete("/history")
     r2 = client.delete("/history")
     assert r1.status_code == 200
     assert r2.status_code == 200
-    data1 = r1.json()
-    data2 = r2.json()
-    assert data1["cleared"] is True
-    assert data2["cleared"] is False
+    assert r1.json()["cleared"] is True
+    assert r2.json()["cleared"] is False

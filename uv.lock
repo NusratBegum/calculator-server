@@ -54,6 +54,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "asteval" },
     { name = "fastapi", extra = ["standard"] },
+    { name = "pydantic" },
 ]
 
 [package.dev-dependencies]
@@ -66,6 +67,7 @@ dev = [
 requires-dist = [
     { name = "asteval", specifier = ">=1.0.10" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.141.1" },
+    { name = "pydantic", specifier = ">=2.13.4" },
 ]
 
 [package.metadata.requires-dev]
