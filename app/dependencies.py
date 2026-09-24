@@ -1,7 +1,8 @@
 import re
 from collections import deque
+from typing import Annotated
 
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 
 from app.schemas import ExpressionIn, ExpressionOut
 
@@ -22,7 +23,7 @@ _percent_pair = re.compile(r"""
 _number_percent = re.compile(r"(?P<n>\d+(?:\.\d+)?)%")
 
 
-def expand_percent(expression: ExpressionIn) -> str:
+def expand_percent(expression: Annotated[ExpressionIn, Depends()]) -> str:
     """Handle A op B% and standalone N% patterns."""
     try:
         s = expression.expr

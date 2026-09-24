@@ -1,6 +1,7 @@
 import math
 from collections import deque
 from datetime import datetime
+from typing import Annotated
 
 from asteval import Interpreter
 from fastapi import APIRouter, Depends
@@ -16,7 +17,7 @@ aeval = Interpreter(minimal=True, usersyms={"pi": math.pi, "e": math.e})
 
 @router.post("/calculate")
 def calculate(
-    expression: ExpressionIn,
+    expression: Annotated[ExpressionIn, Depends()],
     code: str = Depends(expand_percent),
     history: deque[ExpressionOut] = Depends(get_history),
 ):

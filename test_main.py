@@ -21,8 +21,8 @@ def clean_db():
 
 
 def post_expr(expr: str):
-    """Send the expression as a request body built from the Expression model."""
-    return client.post("/calculate", json=Expression(expr=expr).model_dump())
+    """Send the expression as query parameters built from the Expression model."""
+    return client.post("/calculate", params=Expression(expr=expr).model_dump())
 
 
 def test_basic_division():
