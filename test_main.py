@@ -2,8 +2,9 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import TypeAdapter
 
-from main import app, db
-from models import Expression, CalculatorLog
+from app.main import app
+from app.dependencies import history as db
+from app.schemas import ExpressionIn as Expression, ExpressionOut as CalculatorLog
 
 client = TestClient(app)
 
